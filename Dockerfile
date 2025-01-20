@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y \
     x11vnc \
     fluxbox \
     wmctrl \
+    libxcb-cursor0 \
     libdbus-glib-1-2 && \
     apt-get clean
 
