@@ -1,23 +1,61 @@
-FROM openjdk:18-jdk-slim
+# Use the official NVIDIA GPU-optimized base image for OpenJDK
+FROM nvidia/cuda:11.8.0-base-ubuntu20.04
 
 LABEL maintainer "Amr Salem"
 
 ENV DEBIAN_FRONTEND noninteractive
 
 WORKDIR /
-#=============================
-# Install Dependenices 
-#=============================
-SHELL ["/bin/bash", "-c"]   
 
-RUN apt update && apt install -y curl sudo wget unzip bzip2 libdrm-dev libxkbcommon-dev libgbm-dev libasound-dev libnss3 libxcursor1 libpulse-dev libxshmfence-dev xauth xvfb x11vnc fluxbox wmctrl libdbus-glib-1-2
+#=============================
+# Install Dependencies
+#=============================
+SHELL ["/bin/bash", "-c"]
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    sudo \
+    wget \
+    unzip \
+    bzip2 \
+    libdrm-dev \
+    libxkbcommon-dev \
+    libgbm-dev \
+    libasound-dev \
+    libnss3 \
+    libxcursor1 \
+    libpulse-dev \
+    libxshmfence-dev \
+    xauth \
+    xvfb \
+    x11vnc \
+    fluxbox \
+    wmctrl \
+    libdbus-glib-1-2 && \
+    apt-get clean
+
+#==============================
+# Manual Installation of OpenJDK 18
+#==============================
+RUN curl -L https://download.java.net/java/GA/jdk18/43f95e8614114aeaa8e8a5fcf20a682d/36/GPL/openjdk-18_linux-x64_bin.tar.gz -o /tmp/openjdk-18.tar.gz && \
+    mkdir -p /opt/openjdk-18 && \
+    tar -xzf /tmp/openjdk-18.tar.gz -C /opt/openjdk-18 --strip-components=1 && \
+    rm /tmp/openjdk-18.tar.gz && \
+    apt-get clean
+
+# Set JAVA_HOME for OpenJDK 18
+ENV JAVA_HOME=/opt/openjdk-18
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# Verify OpenJDK installation
+RUN java -version
 
 #==============================
 # Android SDK ARGS
 #==============================
-ARG ARCH="x86_64" 
-ARG TARGET="google_apis_playstore"  
-ARG API_LEVEL="34" 
+ARG ARCH="x86_64"
+ARG TARGET="google_apis_playstore"
+ARG API_LEVEL="34"
 ARG BUILD_TOOLS="34.0.0"
 ARG ANDROID_ARCH=${ANDROID_ARCH_DEFAULT}
 ARG ANDROID_API_LEVEL="android-${API_LEVEL}"
@@ -29,7 +67,7 @@ ARG ANDROID_CMD="commandlinetools-linux-11076708_latest.zip"
 ARG ANDROID_SDK_PACKAGES="${EMULATOR_PACKAGE} ${PLATFORM_VERSION} ${BUILD_TOOL} platform-tools emulator"
 
 #==============================
-# Set JAVA_HOME - SDK
+# Set ANDROID_SDK_ROOT
 #==============================
 ENV ANDROID_SDK_ROOT=/opt/android
 ENV PATH "$PATH:$ANDROID_SDK_ROOT/cmdline-tools/tools:$ANDROID_SDK_ROOT/cmdline-tools/tools/bin:$ANDROID_SDK_ROOT/emulator:$ANDROID_SDK_ROOT/tools/bin:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/build-tools/${BUILD_TOOLS}"
@@ -44,10 +82,10 @@ RUN wget https://dl.google.com/android/repository/${ANDROID_CMD} -P /tmp && \
               cd $ANDROID_SDK_ROOT/cmdline-tools/tools && ls
 
 #============================================
-# Install required package using SDK manager
+# Install required packages using SDK manager
 #============================================
-RUN yes Y | sdkmanager --licenses 
-RUN yes Y | sdkmanager --verbose --no_https ${ANDROID_SDK_PACKAGES} 
+RUN yes Y | sdkmanager --licenses
+RUN yes Y | sdkmanager --verbose --no_https ${ANDROID_SDK_PACKAGES}
 
 #============================================
 # Create required emulator
@@ -68,7 +106,7 @@ RUN curl -sL https://deb.nodesource.com/setup_20.x | bash && \
     appium driver install uiautomator2 && \
     exit 0 && \
     npm cache clean && \
-    apt-get remove --purge -y npm && \  
+    apt-get remove --purge -y npm && \
     apt-get autoremove --purge -y && \
     apt-get clean && \
     rm -Rf /tmp/* && rm -Rf /var/lib/apt/lists/*
@@ -98,7 +136,10 @@ RUN chmod a+x start_vnc.sh && \
     chmod a+x start_appium.sh && \
     chmod a+x start_emu_headless.sh
 
+
+EXPOSE 5900 4723
+
 #=======================
-# framework entry point
+# Framework Entry Point
 #=======================
 CMD [ "/bin/bash" ]
